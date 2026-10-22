@@ -1,6 +1,11 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+    // the admin dashboard has its own config (tailwind.admin.config.js)
+    "!./src/admin/**",
+  ],
   theme: {
     screens: {
       xs: "360px",

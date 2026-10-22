@@ -1,0 +1,44 @@
+/* Admin dashboard styles. Built with tailwind.admin.config.js and scoped to
+   .admin-root so they never change the look of the public website. */
+@config "../../tailwind.admin.config.js";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom scrollbar (admin area only) */
+.admin-root ::-webkit-scrollbar {
+  width: 6px;
+}
+
+.admin-root ::-webkit-scrollbar-track {
+  background-color: rgb(243 244 246);
+}
+
+.admin-root ::-webkit-scrollbar-thumb {
+  background-color: rgb(209 213 219);
+  border-radius: 0.375rem;
+}
+
+.admin-root ::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(156 163 175);
+}
+
+/* Loading spinner */
+.admin-root .spinner {
+  display: inline-block;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-width: 2px;
+  border-style: solid;
+  border-color: rgb(229 231 235);
+  border-top-color: rgb(8 145 178);
+  border-radius: 9999px;
+  animation: admin-spin 1s linear infinite;
+}
+
+@keyframes admin-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

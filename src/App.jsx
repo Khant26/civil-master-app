@@ -12,6 +12,9 @@ const NewArticle = lazy(() => import('./Pages/new_article'));
 const New = lazy(() => import('./Pages/new'));
 const Article = lazy(() => import('./Pages/article'));
 
+// CMS admin dashboard (own chunk + scoped styles, only loaded on /admin/*)
+const AdminApp = lazy(() => import('./admin/AdminApp'));
+
 function App() {
   return (
     <RequestFormProvider>
@@ -25,6 +28,7 @@ function App() {
             <Route path="/news-article" element={<NewArticle />} />
             <Route path="/new" element={<New />} />
             <Route path="/article" element={<Article />} />
+            <Route path="/admin/*" element={<AdminApp />} />
             {/* Catch all unmatched routes including /en/, /en/anything, etc. */}
             <Route path="*" element={<NotFound />} />
           </Routes>

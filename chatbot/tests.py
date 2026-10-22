@@ -1,17 +1,9 @@
-import google.generativeai as genai
-import os
-from dotenv import load_dotenv
+from django.test import TestCase
 
-load_dotenv()
-genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-model = genai.GenerativeModel('gemini-2.5-flash')
-prompt = (
-    "You are CMSBot, an expert for Civil Master Solution (CMS). "
-    "Specialize in construction and engineering solutions. "
-    "Answer: Mission: Deliver innovative construction solutions. Vision: Lead in modern construction technologies."
-)
-try:
-    response = model.generate_content(prompt)
-    print(response.text)
-except Exception as e:
-    print(f"Error: {e}")
+
+class ChatbotEndpointTests(TestCase):
+    """Offline checks only - these tests never call the Gemini API."""
+
+    def test_get_is_rejected(self):
+        response = self.client.get('/api/chatbot/', secure=True)
+        self.assertEqual(response.status_code, 405)

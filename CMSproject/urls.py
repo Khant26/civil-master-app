@@ -19,8 +19,10 @@ from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.static import serve
+from .health import health
 
 urlpatterns = [
+    re_path(r'^health/?$', health, name='health'),
     path('admin/', admin.site.urls),
     path('api/', include('CMSapp.urls')),
     path('api/', include('chatbot.urls')),

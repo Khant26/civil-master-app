@@ -38,7 +38,7 @@ services:
         sync: false
       - key: MEDIA_ROOT
         value: "/opt/render/project/data/media"
-    healthCheckPath: /admin/login/
+    healthCheckPath: /health/
     autoDeploy: true
     disk:
       name: cms-media-storage

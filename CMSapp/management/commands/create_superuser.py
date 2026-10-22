@@ -12,9 +12,10 @@ class Command(BaseCommand):
     )
 
     def handle(self, *args, **options):
-        username = os.environ.get('DJANGO_SUPERUSER_USERNAME')
-        password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
-        email = os.environ.get('DJANGO_SUPERUSER_EMAIL', '')
+        # SUPERUSER_* are the names used by the earlier version of this command.
+        username = os.environ.get('DJANGO_SUPERUSER_USERNAME') or os.environ.get('SUPERUSER_USERNAME')
+        password = os.environ.get('DJANGO_SUPERUSER_PASSWORD') or os.environ.get('SUPERUSER_PASSWORD')
+        email = os.environ.get('DJANGO_SUPERUSER_EMAIL') or os.environ.get('SUPERUSER_EMAIL', '')
 
         if not username or not password:
             self.stdout.write('DJANGO_SUPERUSER_USERNAME/PASSWORD not set; skipping superuser creation.')

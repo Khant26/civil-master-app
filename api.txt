@@ -1,8 +1,8 @@
 ### API Documentation
 
-username = cms
-emai address = cms@example.com
-password = cms12345
+Admin login: use a Django staff/superuser account (create one with
+`python manage.py createsuperuser` or the DJANGO_SUPERUSER_* env vars).
+Never store real credentials in this file.
 
 ### Public API (No Auth)
 1 - Partnership

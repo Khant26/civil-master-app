@@ -109,15 +109,15 @@ In Render Web Service → Environment:
 ```
 SECRET_KEY = [Auto-generate]
 DEBUG = False
-GEMINI_API_KEY = AIzaSyCeBU8i5c9HWR9Cg0RhDVIF4CYJvqRVq90
+GEMINI_API_KEY = [your Gemini API key]
 DATABASE_URL = [From PostgreSQL service]
 REDIS_URL = [From Redis service]
-FRONTEND_URL = https://your-frontend.vercel.app
+FRONTEND_URL = https://www.civilmastersolution.com
 EMAIL_HOST = smtp.gmail.com
 EMAIL_PORT = 587
-EMAIL_HOST_USER = cms.civilmastersolution@gmail.com
-EMAIL_HOST_PASSWORD = jmol egif pmdv grul
-ADMIN_ALERT_EMAIL = cms.civilmastersolution@gmail.com
+EMAIL_HOST_USER = [sender Gmail address]
+EMAIL_HOST_PASSWORD = [Gmail app password]
+ADMIN_ALERT_EMAIL = [alert recipient address]
 ```
 
 ### **Step 5: Deploy**

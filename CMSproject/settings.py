@@ -15,8 +15,21 @@ from pathlib import Path
 from dotenv import load_dotenv
 from datetime import timedelta
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 load_dotenv()
+
+
+def env_bool(name, default=False):
+    value = os.environ.get(name)
+    if value is None or value == '':
+        return default
+    return value.strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def env_list(name):
+    """Comma-separated environment variable -> list of non-empty strings."""
+    return [item.strip() for item in os.environ.get(name, '').split(',') if item.strip()]
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,11 +38,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', os.getenv('DJANGO_SECRET_KEY', 'django-insecure-fallback-key'))
-
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+DEBUG = env_bool('DEBUG', False)
+
+# SECURITY WARNING: keep the secret key used in production secret!
+# It must come from the environment (SECRET_KEY, or legacy DJANGO_SECRET_KEY).
+SECRET_KEY = os.environ.get('SECRET_KEY') or os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'django-insecure-local-development-only'
+    else:
+        raise ImproperlyConfigured('SECRET_KEY environment variable is required when DEBUG is off.')
 
 # Updated ALLOWED_HOSTS for Render
 ALLOWED_HOSTS = [
@@ -38,9 +57,8 @@ ALLOWED_HOSTS = [
     '.onrender.com',  # Allow all Render subdomains
 ]
 
-# Add custom domains from environment variable
-if os.environ.get('ALLOWED_HOSTS'):
-    ALLOWED_HOSTS.extend(os.environ.get('ALLOWED_HOSTS').split(','))
+# Add custom domains from environment variable (comma-separated)
+ALLOWED_HOSTS.extend(env_list('ALLOWED_HOSTS'))
 
 # Add Render external hostname
 if os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
@@ -75,17 +93,26 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# Frontend origins (public website incl. its /admin dashboard). Defaults keep
+# the previously hard-coded deployments; add more with FRONTEND_URL, ADMIN_URL
+# or the comma-separated CORS_ALLOWED_ORIGINS environment variable.
+DEFAULT_FRONTEND_ORIGINS = [
+    'https://www.civilmastersolution.com',
+    'https://civilmastersolution.com',
+    'https://cms-testing-frontend.vercel.app',
+    'https://cms-testing-admin.vercel.app',
+]
+FRONTEND_ORIGINS = list(dict.fromkeys(
+    DEFAULT_FRONTEND_ORIGINS
+    + [url.rstrip('/') for url in (os.environ.get('FRONTEND_URL', ''), os.environ.get('ADMIN_URL', '')) if url]
+    + [url.rstrip('/') for url in env_list('CORS_ALLOWED_ORIGINS')]
+))
+
 # CORS Configuration - Dynamic based on DEBUG
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
 else:
-    CORS_ALLOWED_ORIGINS = [
-        # Deployed frontend and admin URLs
-        'https://cms-testing-frontend.vercel.app',
-        'https://cms-testing-admin.vercel.app',
-        # Environment variable URLs
-        os.environ.get('FRONTEND_URL', ''),
-        os.environ.get('ADMIN_URL', ''),
+    CORS_ALLOWED_ORIGINS = FRONTEND_ORIGINS + [
         # Local development
         'http://localhost:3000',
         'http://127.0.0.1:3000',
@@ -94,13 +121,11 @@ else:
         'http://localhost:5174',
         'http://127.0.0.1:5174',
     ]
-    # Remove empty strings
-    CORS_ALLOWED_ORIGINS = [origin for origin in CORS_ALLOWED_ORIGINS if origin]
 
-# Allow all Vercel preview deployments
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://.*\.vercel\.app$",  # Match all Vercel preview URLs
-]
+# Allow all Vercel preview deployments (CORS_ALLOW_VERCEL_PREVIEWS=False disables it)
+CORS_ALLOWED_ORIGIN_REGEXES = []
+if env_bool('CORS_ALLOW_VERCEL_PREVIEWS', True):
+    CORS_ALLOWED_ORIGIN_REGEXES.append(r"^https://.*\.vercel\.app$")
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -190,14 +215,23 @@ if os.path.exists(os.path.join(BASE_DIR, 'static')):
     STATICFILES_DIRS.append(os.path.join(BASE_DIR, 'static'))
 
 # WhiteNoise configuration for serving static files efficiently
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# (STATICFILES_STORAGE was removed in Django 5.1; STORAGES replaces it.)
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
 
 # Media files configuration
-# On Render, use persistent disk path if available, otherwise use local media directory
-if os.environ.get('RENDER'):
-    # Render persistent disk is typically mounted at /opt/render/project/data
-    # Or check for RENDER_EXTERNAL_DISK environment variable
-    MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '/opt/render/project/data/media')
+# MEDIA_ROOT env var wins (Render persistent disk, Docker volume, ...).
+if os.environ.get('MEDIA_ROOT'):
+    MEDIA_ROOT = os.environ['MEDIA_ROOT']
+elif os.environ.get('RENDER'):
+    # Render persistent disk is mounted at /opt/render/project/data
+    MEDIA_ROOT = '/opt/render/project/data/media'
 else:
     # Local development
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -311,7 +345,11 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 
 # HTTPS/SSL Configuration for production
 if not DEBUG:
-    SECURE_SSL_REDIRECT = True
+    # Set SECURE_SSL_REDIRECT=False only if TLS is terminated elsewhere and
+    # the proxy does not send X-Forwarded-Proto.
+    SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', True)
+    # Health checks from the platform / Docker hit plain HTTP internally.
+    SECURE_REDIRECT_EXEMPT = [r'^health/?$']
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
@@ -330,30 +368,20 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', os.getenv('EMAIL_HOST_USER'))  
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', os.getenv('EMAIL_HOST_PASSWORD'))
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 ADMIN_ALERT_EMAIL = os.environ.get('ADMIN_ALERT_EMAIL', '')
 
 # Trusted origins for CSRF (for Render deployment)
-CSRF_TRUSTED_ORIGINS = []
+CSRF_TRUSTED_ORIGINS = [url.rstrip('/') for url in env_list('CSRF_TRUSTED_ORIGINS')]
 if not DEBUG:
-    # Add deployed frontend and admin URLs
-    CSRF_TRUSTED_ORIGINS.extend([
-        'https://cms-testing-frontend.vercel.app',
-        'https://cms-testing-admin.vercel.app',
-    ])
+    # Deployed frontend/admin URLs (+ FRONTEND_URL, ADMIN_URL, CORS_ALLOWED_ORIGINS)
+    CSRF_TRUSTED_ORIGINS.extend(FRONTEND_ORIGINS)
     # Add backend URL
     if os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
         CSRF_TRUSTED_ORIGINS.append(f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}")
-    # Add from environment variables
-    if os.environ.get('FRONTEND_URL'):
-        CSRF_TRUSTED_ORIGINS.append(os.environ.get('FRONTEND_URL'))
-    if os.environ.get('ADMIN_URL'):
-        CSRF_TRUSTED_ORIGINS.append(os.environ.get('ADMIN_URL'))
+CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS))
 
-# Allow all Vercel preview deployments for CSRF
-import re
-CSRF_TRUSTED_ORIGINS_REGEX = [
-    re.compile(r"^https://.*\.vercel\.app$"),
-] 
+# Gemini chatbot API key (read by chatbot/chatbot.py)
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')

@@ -19,7 +19,7 @@ except ImportError:
 import google.generativeai as genai
 
 logger = logging.getLogger(__name__)
-genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+genai.configure(api_key=getattr(settings, 'GEMINI_API_KEY', '') or os.getenv('GEMINI_API_KEY'))
 api_lock = threading.Lock()
 
 model = None  # Lazy loaded in find_match function

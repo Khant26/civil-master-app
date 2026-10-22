@@ -90,25 +90,26 @@ pip install -r requirements.txt
 
 ### 5. Setup environment variables
 
-Create a `.env` file in your project root:
+Copy the template and fill in values (never commit `.env`):
 
+```bash
+cp .env.example .env
 ```
-password = [Your_Password]
 
-DJANGO_SECRET_KEY = [secret_key]
-DEBUG = True
-ALLOWED_HOSTS = [your_Host]
-
-# supabase connection
-DB_NAME = postgres
-DB_USER = postgres
-DB_PASSWORD = [your_Password]
-DB_HOST = [your_database_host]
-DB_PORT = [your_port_number]
-
-# Chatbot API
-GEMINI_API_KEY = [your_gemini_api_key]
-```
+| Variable | Purpose |
+|---|---|
+| `SECRET_KEY` | Django secret key. **Required** when `DEBUG` is off (legacy name `DJANGO_SECRET_KEY` also works). |
+| `DEBUG` | `True` for local development only. |
+| `ALLOWED_HOSTS` | Extra hostnames, comma-separated. |
+| `DATABASE_URL` | Postgres URL; SQLite is used when empty. |
+| `REDIS_URL` | Redis cache; in-memory cache when empty. |
+| `FRONTEND_URL`, `ADMIN_URL`, `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS` | Allowed browser origins (the public site and its `/admin` dashboard). |
+| `CORS_ALLOW_VERCEL_PREVIEWS` | Allow `https://*.vercel.app` (default `True`). |
+| `SECURE_SSL_REDIRECT` | HTTPS redirect when `DEBUG` is off (default `True`). |
+| `MEDIA_ROOT` | Upload directory (Render disk / Docker volume). |
+| `GEMINI_API_KEY` | Chatbot (Google Gemini). |
+| `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`, `ADMIN_ALERT_EMAIL` | SMTP for request-form replies and alerts. |
+| `DJANGO_SUPERUSER_USERNAME`, `DJANGO_SUPERUSER_EMAIL`, `DJANGO_SUPERUSER_PASSWORD` | Optional; `build.sh` creates this superuser once. |
 
 ### 6. Run migrations
 
@@ -129,6 +130,24 @@ python manage.py runserver
 ```
 
 ---
+
+## Health check, tests and Docker
+
+- `GET /health/` returns `{"status": "ok"}` (200); Render's `healthCheckPath` and the Docker `HEALTHCHECK` use it.
+- Checks and tests (no network or real secrets needed):
+
+```bash
+SECRET_KEY=dummy DEBUG=False python manage.py check
+SECRET_KEY=dummy DEBUG=False python manage.py test
+```
+
+- Docker (gunicorn on `0.0.0.0:8000`, static files collected at build time):
+
+```bash
+docker build -t cms-api .
+docker run --rm --env-file .env cms-api python manage.py migrate
+docker run -d -p 8000:8000 --env-file .env -v cms-media:/app/media cms-api
+```
 
 ## API Endpoints
 
